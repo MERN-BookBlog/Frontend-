@@ -8,6 +8,8 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 import Login from './components/Login';
 import Register from './components/Register';
 import BookRecommendation from './components/BookRecommendation';
+import TrendingBooks from './components/TrendingBooks';
+import FullScreenReader from './components/FullScreenReader';
 
 // Protected Route component
 const ProtectedRoute = ({ children }) => {
@@ -46,7 +48,10 @@ const Dashboard = () => {
 
       {/* Main Content */}
       <main>
-        <BookRecommendation />
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <TrendingBooks />
+          <BookRecommendation />
+        </div>
       </main>
     </div>
   );
@@ -78,6 +83,14 @@ function App() {
                 element={
                   <ProtectedRoute>
                     <Dashboard />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/read/:bookId"
+                element={
+                  <ProtectedRoute>
+                    <FullScreenReader />
                   </ProtectedRoute>
                 }
               />

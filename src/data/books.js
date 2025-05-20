@@ -1,4 +1,4 @@
-// Book data from Kaggle dataset
+// Book data from Kaggle dataset - Enhanced for better fallback experience
 export const BOOKS_DATA = [
   {
     title: "Rich Dad Poor Dad",
@@ -89,6 +89,86 @@ export const BOOKS_DATA = [
     language: "English",
     pages: 277,
     price: 10.99
+  },
+  {
+    title: "Harry Potter and the Sorcerer's Stone",
+    author: "J.K. Rowling",
+    description: "The first novel in the Harry Potter series, featuring a young wizard's journey at Hogwarts School of Witchcraft and Wizardry.",
+    rating: 4.9,
+    genre: "Fantasy",
+    year: "1997",
+    benefits: "Introduces readers to a magical world of adventure and friendship.",
+    imageUrl: "https://images.unsplash.com/photo-1551269901-5c5e14c25df7?w=500",
+    isbn: "9780590353427",
+    publisher: "Scholastic",
+    language: "English",
+    pages: 309,
+    price: 12.99,
+    previewLink: "https://books.google.com/books?id=wrOQLV6xB-wC&printsec=frontcover"
+  },
+  {
+    title: "The Alchemist",
+    author: "Paulo Coelho",
+    description: "A philosophical novel about a young Andalusian shepherd who dreams of finding a worldly treasure and embarks on a journey of self-discovery.",
+    rating: 4.6,
+    genre: "Fiction",
+    year: "1988",
+    benefits: "Teaches about following one's dreams and finding one's destiny.",
+    imageUrl: "https://images.unsplash.com/photo-1544947950-fa07a98d237f?w=500",
+    isbn: "9780062315007",
+    publisher: "HarperOne",
+    language: "English",
+    pages: 208,
+    price: 11.99,
+    previewLink: "https://books.google.com/books?id=FzVjBgAAQBAJ&printsec=frontcover"
+  },
+  {
+    title: "Sapiens: A Brief History of Humankind",
+    author: "Yuval Noah Harari",
+    description: "A book that explores the history of the human species from the emergence of Homo sapiens to the present day.",
+    rating: 4.7,
+    genre: "History",
+    year: "2011",
+    benefits: "Provides a comprehensive overview of human history and evolution.",
+    imageUrl: "https://images.unsplash.com/photo-1589998059171-988d887df646?w=500",
+    isbn: "9780062316097",
+    publisher: "Harper",
+    language: "English",
+    pages: 443,
+    price: 14.99,
+    previewLink: "https://books.google.com/books?id=1EiJAwAAQBAJ&printsec=frontcover"
+  },
+  {
+    title: "Atomic Habits",
+    author: "James Clear",
+    description: "A guide to building good habits and breaking bad ones through small, incremental changes.",
+    rating: 4.8,
+    genre: "Self-Help",
+    year: "2018",
+    benefits: "Provides practical strategies for habit formation and personal improvement.",
+    imageUrl: "https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?w=500",
+    isbn: "9780735211292",
+    publisher: "Avery",
+    language: "English",
+    pages: 320,
+    price: 16.99,
+    previewLink: "https://books.google.com/books?id=XfFvDwAAQBAJ&printsec=frontcover"
+  },
+  {
+    title: "The Lord of the Rings",
+    author: "J.R.R. Tolkien",
+    description: "An epic high-fantasy novel that follows the quest to destroy the One Ring, which was created by the Dark Lord Sauron.",
+    rating: 4.9,
+    genre: "Fantasy",
+    year: "1954",
+    benefits: "Immerses readers in a richly detailed fantasy world with complex characters and themes.",
+    imageUrl: "https://images.unsplash.com/photo-1506466010722-395aa2bef877?w=500",
+    isbn: "9780618640157",
+    publisher: "Houghton Mifflin",
+    language: "English",
+    pages: 1178,
+    price: 19.99,
+    previewLink: "https://books.google.com/books?id=yl4dILkcqm4C&printsec=frontcover"
   }
 ];
 
@@ -111,10 +191,10 @@ export const getBooksByRating = (minRating) => {
 
 export const searchBooks = (query) => {
   if (!query) return BOOKS_DATA;
-  
+
   const searchTerm = query.toLowerCase().trim();
   console.log('Searching for:', searchTerm); // Debug log
-  
+
   const results = BOOKS_DATA.filter(book => {
     const titleMatch = book.title.toLowerCase().includes(searchTerm);
     const authorMatch = book.author.toLowerCase().includes(searchTerm);
@@ -122,16 +202,16 @@ export const searchBooks = (query) => {
     const descriptionMatch = book.description.toLowerCase().includes(searchTerm);
     const isbnMatch = book.isbn.includes(searchTerm);
     const publisherMatch = book.publisher.toLowerCase().includes(searchTerm);
-    
+
     const isMatch = titleMatch || authorMatch || genreMatch || descriptionMatch || isbnMatch || publisherMatch;
-    
+
     if (isMatch) {
       console.log('Found match:', book.title); // Debug log
     }
-    
+
     return isMatch;
   });
-  
+
   console.log('Total matches found:', results.length); // Debug log
   return results;
-}; 
+};
