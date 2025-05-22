@@ -233,13 +233,13 @@ const BookRecommendation = () => {
             matches = matches && book.rating >= parseFloat(options.minRating);
           }
           return matches;
-        });
+      });
 
-        setBooks(filteredSampleBooks.slice(0, 12));
-        if (filteredSampleBooks.length > 0) {
-          generateRecommendations(filteredSampleBooks);
-        }
-        return;
+      setBooks(filteredSampleBooks.slice(0, 12));
+      if (filteredSampleBooks.length > 0) {
+        generateRecommendations(filteredSampleBooks);
+      }
+      return;
       }
     }
 
