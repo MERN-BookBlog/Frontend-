@@ -8,6 +8,8 @@ import axios from 'axios';
 import BookReader from './BookReader';
 // Sample data for fallback when API is unavailable
 import { BOOKS_DATA } from '../data/books';
+// Import dropdown arrow SVG
+import { dropdownArrowSvg } from '../utils/icons';
 
 // Use environment variable for API key with fallback
 const GOOGLE_BOOKS_API_KEY = process.env.REACT_APP_GOOGLE_BOOKS_API_KEY;
@@ -68,6 +70,7 @@ const BookRecommendation = () => {
   const [selectedRating, setSelectedRating] = useState('All Ratings');
   const [selectedLanguage, setSelectedLanguage] = useState('All Languages');
   const [priceRange, setPriceRange] = useState([0, 100]);
+  const [selectedAuthor, setSelectedAuthor] = useState('All Authors');
 
   // Search history
   const [searchHistory, setSearchHistory] = useState([]);
@@ -102,6 +105,7 @@ const BookRecommendation = () => {
   const years = ['All Years', ...new Set(books.map(book => book.year))];
   const ratings = ['All Ratings', '4.5+', '4.0+', '3.5+', '3.0+'];
   const languages = ['All Languages', 'English', 'Spanish', 'French', 'German', 'Chinese', 'Japanese', 'Russian'];
+  const authors = ['All Authors', ...new Set(books.map(book => book.author))];
 
   // Verify API connection on component mount and load initial data
   useEffect(() => {
@@ -188,46 +192,55 @@ const BookRecommendation = () => {
 
   // Advanced search function with filters and topic support
   const advancedSearch = useCallback(async (query, options = {}) => {
-    // If no query and no topic, clear results
-    if (!query.trim() && !options.topic) {
-      setBooks([]);
-      return;
+    // Build the base search query
+    let searchTerms = [];
+    
+    // Add main search query if exists
+    if (query?.trim()) {
+      searchTerms.push(query.trim());
     }
 
-    // Check if API key is valid or if it's already known to be expired, use sample data if not
-    if (!isValidApiKey(GOOGLE_BOOKS_API_KEY) || isApiKeyExpired) {
-      // Show appropriate error message
-      if (isApiKeyExpired) {
-        setError('API key expired. Please renew the API key. Using sample data instead.');
-      } else {
-        setError('Google Books API key is missing or invalid. Using sample data instead.');
-      }
+    // Add filters to search terms
+    if (options.genre && options.genre !== 'All Genres') {
+      searchTerms.push(`subject:${options.genre}`);
+    }
+    
+    if (options.author && options.author !== 'All Authors') {
+      searchTerms.push(`inauthor:${options.author}`);
+    }
 
-      // Filter sample data based on query or topic
-      const filteredSampleBooks = BOOKS_DATA.filter(book => {
-        if (options.topic) {
-          return book.genre && book.genre.toLowerCase().includes(options.topic.toLowerCase());
+    // If no search terms and no topic, use a default search
+    if (searchTerms.length === 0 && !options.topic) {
+      if (isValidApiKey(GOOGLE_BOOKS_API_KEY) && !isApiKeyExpired) {
+        searchTerms.push('subject:general');
+      } else {
+        // Use sample data with current filters
+        const filteredSampleBooks = BOOKS_DATA.filter(book => {
+          let matches = true;
+          if (options.genre && options.genre !== 'All Genres') {
+            matches = matches && book.genre.toLowerCase().includes(options.genre.toLowerCase());
+          }
+          if (options.year && options.year !== 'All Years') {
+            matches = matches && book.year === options.year;
+          }
+          if (options.language && options.language !== 'All Languages') {
+            matches = matches && book.language.toLowerCase() === options.language.toLowerCase();
+          }
+          if (options.author && options.author !== 'All Authors') {
+            matches = matches && book.author.toLowerCase().includes(options.author.toLowerCase());
+          }
+          if (options.minRating) {
+            matches = matches && book.rating >= parseFloat(options.minRating);
+          }
+          return matches;
+        });
+
+        setBooks(filteredSampleBooks.slice(0, 12));
+        if (filteredSampleBooks.length > 0) {
+          generateRecommendations(filteredSampleBooks);
         }
-
-        if (!query.trim()) return true;
-
-        const searchTerm = query.toLowerCase();
-        return book.title.toLowerCase().includes(searchTerm) ||
-               book.author.toLowerCase().includes(searchTerm) ||
-               (book.genre && book.genre.toLowerCase().includes(searchTerm)) ||
-               (book.description && book.description.toLowerCase().includes(searchTerm));
-      });
-
-      setBooks(filteredSampleBooks.slice(0, 12));
-
-      if (filteredSampleBooks.length > 0) {
-        generateRecommendations(filteredSampleBooks);
-        toast.info(`Found ${filteredSampleBooks.length} books in sample data`);
-      } else {
-        toast.info('No matching books found in sample data');
+        return;
       }
-
-      return;
     }
 
     setIsLoading(true);
@@ -237,27 +250,13 @@ const BookRecommendation = () => {
       // Build search parameters
       let searchParams = new URLSearchParams();
 
-      // Add basic query or topic-based query
+      // Add the combined search query
       if (options.topic) {
         searchParams.append('q', `subject:${encodeURIComponent(options.topic)}`);
         console.log(`Searching for books in topic: ${options.topic}`);
       } else {
-        searchParams.append('q', encodeURIComponent(query));
-        console.log('Searching Google Books API for:', query);
-
-        // Save to search history if it's a new search
-        if (query.trim() && !searchHistory.includes(query.trim())) {
-          setSearchHistory(prev => [query.trim(), ...prev.slice(0, 9)]);
-        }
-      }
-
-      // Add filters if provided
-      if (options.genre && options.genre !== 'All Genres') {
-        searchParams.append('q', `+subject:${encodeURIComponent(options.genre)}`);
-      }
-
-      if (options.language && options.language !== 'All Languages') {
-        searchParams.append('langRestrict', options.language.toLowerCase());
+        searchParams.append('q', encodeURIComponent(searchTerms.join(' ')));
+        console.log('Searching Google Books API with terms:', searchTerms.join(' '));
       }
 
       // Add API key
@@ -266,35 +265,30 @@ const BookRecommendation = () => {
       // Add max results
       searchParams.append('maxResults', '40');
 
-      // Add sorting if provided
-      if (options.orderBy) {
-        searchParams.append('orderBy', options.orderBy);
+      // Add language restriction if specified
+      if (options.language && options.language !== 'All Languages') {
+        searchParams.append('langRestrict', options.language.toLowerCase());
       }
 
       // Make the API request with timeout
       const response = await axios.get(`${GOOGLE_BOOKS_API_URL}?${searchParams.toString()}`, {
-        timeout: 10000 // 10 second timeout
+        timeout: 10000
       });
 
       if (response.data && response.data.items) {
         // Use our helper function to format books consistently
-        const formattedBooks = formatBooksData(response.data.items);
+        let filteredBooks = formatBooksData(response.data.items);
 
         // Apply client-side filters
-        let filteredBooks = formattedBooks;
+        if (options.year && options.year !== 'All Years') {
+          filteredBooks = filteredBooks.filter(book => book.year === options.year);
+        }
 
-        // Filter by rating if selected
         if (options.minRating && options.minRating !== 'All Ratings') {
           const minRatingValue = parseFloat(options.minRating);
           filteredBooks = filteredBooks.filter(book => book.rating >= minRatingValue);
         }
 
-        // Filter by year if selected
-        if (options.year && options.year !== 'All Years') {
-          filteredBooks = filteredBooks.filter(book => book.year === options.year);
-        }
-
-        // Filter by price range if provided
         if (options.priceRange && options.priceRange.length === 2) {
           const [minPrice, maxPrice] = options.priceRange;
           filteredBooks = filteredBooks.filter(
@@ -305,7 +299,6 @@ const BookRecommendation = () => {
         console.log('Found books:', filteredBooks.length);
         setBooks(filteredBooks);
 
-        // Generate recommendations based on this search
         if (filteredBooks.length > 0) {
           generateRecommendations(filteredBooks);
         }
@@ -313,49 +306,53 @@ const BookRecommendation = () => {
         toast.success(`Found ${filteredBooks.length} books`);
       } else {
         setBooks([]);
-        toast.info('No books found. Try a different search term or topic.');
+        toast.info('No books found. Try different search terms or filters.');
       }
     } catch (error) {
       console.error('Error searching books:', error);
 
-      // Provide more specific error messages
+      // Handle API errors
       const errorMessage = error.response?.data?.error?.message || '';
 
-      // Check for expired API key specifically
       if (errorMessage.includes('API key expired') ||
           errorMessage.includes('API key not valid') ||
           errorMessage.toLowerCase().includes('expired')) {
         isApiKeyExpired = true;
-        setError('API key expired. Please renew the API key. Using sample data instead.');
-        toast.error('API key expired - Using sample data', { autoClose: 5000 });
-      }
-      else if (error.code === 'ECONNABORTED') {
-        setError('Search request timed out. Using sample data instead.');
+        setError('API key expired. Using sample data instead.');
+        toast.error('API key expired - Using sample data');
+      } else if (error.code === 'ECONNABORTED') {
+        setError('Search request timed out. Using sample data.');
         toast.error('Search timed out - Using sample data');
-      } else if (error.response?.status === 403) {
-        isApiKeyExpired = true;
-        setError('API key is invalid or quota exceeded. Using sample data instead.');
-        toast.error('API key error - Using sample data');
-      } else if (error.response?.data?.error?.message) {
-        setError(`API Error: ${error.response.data.error.message}. Using sample data.`);
-        toast.error('API error - Using sample data');
+      } else if (error.response?.status === 400) {
+        setError('Invalid search request. Please try different search terms.');
+        toast.error('Invalid search - Try different terms');
       } else {
-        setError('Failed to search books. Using sample data instead.');
+        setError('Search failed. Using sample data.');
         toast.error('Search failed - Using sample data');
       }
 
-      // Filter sample data as fallback
+      // Use filtered sample data as fallback
       const filteredSampleBooks = BOOKS_DATA.filter(book => {
-        if (!query.trim()) return true;
-        const searchTerm = query.toLowerCase();
-        return book.title.toLowerCase().includes(searchTerm) ||
-               book.author.toLowerCase().includes(searchTerm) ||
-               (book.genre && book.genre.toLowerCase().includes(searchTerm)) ||
-               (book.description && book.description.toLowerCase().includes(searchTerm));
+        let matches = true;
+        if (options.genre && options.genre !== 'All Genres') {
+          matches = matches && book.genre.toLowerCase().includes(options.genre.toLowerCase());
+        }
+        if (options.year && options.year !== 'All Years') {
+          matches = matches && book.year === options.year;
+        }
+        if (options.language && options.language !== 'All Languages') {
+          matches = matches && book.language.toLowerCase() === options.language.toLowerCase();
+        }
+        if (options.author && options.author !== 'All Authors') {
+          matches = matches && book.author.toLowerCase().includes(options.author.toLowerCase());
+        }
+        if (options.minRating) {
+          matches = matches && book.rating >= parseFloat(options.minRating);
+        }
+        return matches;
       });
 
       setBooks(filteredSampleBooks.slice(0, 12));
-
       if (filteredSampleBooks.length > 0) {
         generateRecommendations(filteredSampleBooks);
       }
@@ -394,7 +391,131 @@ const BookRecommendation = () => {
     setShowTopics(false); // Hide topics after selection
   }, [advancedSearch]);
 
-  // Effect for real-time search with debounce
+  // Filter change handlers with immediate search
+  const handleGenreChange = (e) => {
+    const newGenre = e.target.value;
+    setSelectedGenre(newGenre);
+    filterCurrentBooks({
+      genre: newGenre,
+      year: selectedYear,
+      rating: selectedRating,
+      language: selectedLanguage,
+      author: selectedAuthor,
+      priceRange: priceRange
+    });
+  };
+
+  const handleYearChange = (e) => {
+    const newYear = e.target.value;
+    setSelectedYear(newYear);
+    filterCurrentBooks({
+      genre: selectedGenre,
+      year: newYear,
+      rating: selectedRating,
+      language: selectedLanguage,
+      author: selectedAuthor,
+      priceRange: priceRange
+    });
+  };
+
+  const handleRatingChange = (e) => {
+    const newRating = e.target.value;
+    setSelectedRating(newRating);
+    filterCurrentBooks({
+      genre: selectedGenre,
+      year: selectedYear,
+      rating: newRating,
+      language: selectedLanguage,
+      author: selectedAuthor,
+      priceRange: priceRange
+    });
+  };
+
+  const handleLanguageChange = (e) => {
+    const newLanguage = e.target.value;
+    setSelectedLanguage(newLanguage);
+    filterCurrentBooks({
+      genre: selectedGenre,
+      year: selectedYear,
+      rating: selectedRating,
+      language: newLanguage,
+      author: selectedAuthor,
+      priceRange: priceRange
+    });
+  };
+
+  const handleAuthorChange = (e) => {
+    const newAuthor = e.target.value;
+    setSelectedAuthor(newAuthor);
+    filterCurrentBooks({
+      genre: selectedGenre,
+      year: selectedYear,
+      rating: selectedRating,
+      language: selectedLanguage,
+      author: newAuthor,
+      priceRange: priceRange
+    });
+  };
+
+  // New function to filter current books without API call
+  const filterCurrentBooks = (filters) => {
+    // Get the source books (either current books or sample data)
+    const sourceBooks = books.length > 0 ? books : BOOKS_DATA;
+
+    const filteredBooks = sourceBooks.filter(book => {
+      let matches = true;
+
+      // Genre filter
+      if (filters.genre && filters.genre !== 'All Genres') {
+        matches = matches && book.genre.toLowerCase().includes(filters.genre.toLowerCase());
+      }
+
+      // Year filter
+      if (filters.year && filters.year !== 'All Years') {
+        matches = matches && book.year === filters.year;
+      }
+
+      // Rating filter
+      if (filters.rating && filters.rating !== 'All Ratings') {
+        const minRating = parseFloat(filters.rating.replace('+', ''));
+        matches = matches && book.rating >= minRating;
+      }
+
+      // Language filter
+      if (filters.language && filters.language !== 'All Languages') {
+        matches = matches && book.language.toLowerCase() === filters.language.toLowerCase();
+      }
+
+      // Author filter
+      if (filters.author && filters.author !== 'All Authors') {
+        matches = matches && book.author.toLowerCase().includes(filters.author.toLowerCase());
+      }
+
+      // Price range filter
+      if (filters.priceRange && filters.priceRange.length === 2) {
+        const [minPrice, maxPrice] = filters.priceRange;
+        matches = matches && book.price >= minPrice && book.price <= maxPrice;
+      }
+
+      return matches;
+    });
+
+    setBooks(filteredBooks);
+    
+    // Update recommendations if we have filtered results
+    if (filteredBooks.length > 0) {
+      generateRecommendations(filteredBooks);
+    }
+
+    // Show appropriate toast message
+    if (filteredBooks.length === 0) {
+      toast.info('No books match the selected filters');
+    } else {
+      toast.success(`Found ${filteredBooks.length} matching books`);
+    }
+  };
+
+  // Update the search effect to use the new filtering system
   useEffect(() => {
     const timer = setTimeout(() => {
       if (searchQuery.trim()) {
@@ -403,15 +524,14 @@ const BookRecommendation = () => {
           year: selectedYear,
           minRating: selectedRating !== 'All Ratings' ? selectedRating.replace('+', '') : null,
           language: selectedLanguage,
-          priceRange: priceRange
+          priceRange: priceRange,
+          author: selectedAuthor
         });
-      } else if (!selectedTopic) {
-        setBooks([]);
       }
     }, 500);
 
     return () => clearTimeout(timer);
-  }, [searchQuery, advancedSearch, selectedGenre, selectedYear, selectedRating, selectedLanguage, priceRange, selectedTopic]);
+  }, [searchQuery, advancedSearch]);
 
   const handleSearch = (e) => {
     e.preventDefault();
@@ -421,7 +541,8 @@ const BookRecommendation = () => {
         year: selectedYear,
         minRating: selectedRating !== 'All Ratings' ? selectedRating.replace('+', '') : null,
         language: selectedLanguage,
-        priceRange: priceRange
+        priceRange: priceRange,
+        author: selectedAuthor
       });
     }
   };
@@ -442,7 +563,8 @@ const BookRecommendation = () => {
       year: selectedYear,
       minRating: selectedRating !== 'All Ratings' ? selectedRating.replace('+', '') : null,
       language: selectedLanguage,
-      priceRange: priceRange
+      priceRange: priceRange,
+      author: selectedAuthor
     });
     setShowSearchHistory(false);
   };
@@ -587,14 +709,14 @@ const BookRecommendation = () => {
                   exit={{ height: 0, opacity: 0 }}
                   className="overflow-hidden"
                 >
-                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4 pt-4 border-t border-gray-200 mt-4">
+                  <div className="grid grid-cols-1 md:grid-cols-5 gap-4 pt-4 border-t border-gray-200 mt-4 px-2">
                     {/* Genre Filter */}
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Genre</label>
+                    <div className="px-1">
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Genre</label>
                       <select
                         value={selectedGenre}
-                        onChange={(e) => setSelectedGenre(e.target.value)}
-                        className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        onChange={handleGenreChange}
+                        className="custom-select"
                       >
                         {genres.map((genre, index) => (
                           <option key={index} value={genre}>{genre}</option>
@@ -603,12 +725,12 @@ const BookRecommendation = () => {
                     </div>
 
                     {/* Year Filter */}
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Year</label>
+                    <div className="px-1">
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Year</label>
                       <select
                         value={selectedYear}
-                        onChange={(e) => setSelectedYear(e.target.value)}
-                        className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        onChange={handleYearChange}
+                        className="custom-select"
                       >
                         {years.map((year, index) => (
                           <option key={index} value={year}>{year}</option>
@@ -617,12 +739,12 @@ const BookRecommendation = () => {
                     </div>
 
                     {/* Rating Filter */}
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Rating</label>
+                    <div className="px-1">
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Rating</label>
                       <select
                         value={selectedRating}
-                        onChange={(e) => setSelectedRating(e.target.value)}
-                        className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        onChange={handleRatingChange}
+                        className="custom-select"
                       >
                         {ratings.map((rating, index) => (
                           <option key={index} value={rating}>{rating}</option>
@@ -631,15 +753,29 @@ const BookRecommendation = () => {
                     </div>
 
                     {/* Language Filter */}
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Language</label>
+                    <div className="px-1">
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Language</label>
                       <select
                         value={selectedLanguage}
-                        onChange={(e) => setSelectedLanguage(e.target.value)}
-                        className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        onChange={handleLanguageChange}
+                        className="custom-select"
                       >
                         {languages.map((language, index) => (
                           <option key={index} value={language}>{language}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    {/* Author Filter */}
+                    <div className="px-1">
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Author</label>
+                      <select
+                        value={selectedAuthor}
+                        onChange={handleAuthorChange}
+                        className="custom-select"
+                      >
+                        {authors.map((author, index) => (
+                          <option key={index} value={author}>{author}</option>
                         ))}
                       </select>
                     </div>
@@ -744,13 +880,13 @@ const BookRecommendation = () => {
                 key={book.id}
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow duration-300"
+                className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 group"
               >
                 <div className="relative h-48">
                   <img
                     src={book.imageUrl}
                     alt={book.title}
-                    className="w-full h-full object-cover"
+                    className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
                   />
                   {book.rating > 0 && (
                     <div className="absolute top-2 right-2 bg-yellow-400 text-black px-2 py-1 rounded-full text-sm font-semibold flex items-center">
@@ -765,17 +901,17 @@ const BookRecommendation = () => {
                     {favorites.some(fav => fav.title === book.title) ? (
                       <FaHeart className="text-red-500" />
                     ) : (
-                      <FaRegHeart className="text-gray-400" />
+                      <FaRegHeart className="text-gray-400 hover:text-red-500 transition-colors duration-300" />
                     )}
                   </button>
                 </div>
                 <div className="p-4">
-                  <h3 className="text-xl font-semibold text-gray-900 mb-2">{book.title}</h3>
+                  <h3 className="text-xl font-semibold text-gray-900 mb-2 group-hover:text-blue-600 transition-colors duration-300">{book.title}</h3>
                   <p className="text-gray-600 mb-2">by {book.author}</p>
                   <p className="text-gray-500 text-sm mb-4 line-clamp-3">{book.description}</p>
                   <div className="flex flex-wrap gap-2 mb-4">
                     <span
-                      className="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded cursor-pointer hover:bg-blue-200"
+                      className="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded cursor-pointer hover:bg-blue-200 transition-colors duration-300"
                       onClick={() => handleTopicSelect(book.genre)}
                     >
                       {book.genre}
@@ -807,7 +943,7 @@ const BookRecommendation = () => {
                     <div className="flex gap-2 mt-2">
                       <button
                         onClick={() => openBookReader(book.id)}
-                        className="flex-1 bg-blue-600 text-white px-3 py-2 rounded hover:bg-blue-700 transition-colors duration-300 flex items-center justify-center"
+                        className="flex-1 bg-blue-600 text-white px-3 py-2 rounded hover:bg-blue-700 transition-colors duration-300 flex items-center justify-center transform hover:scale-105"
                       >
                         <FaBook className="mr-1" />
                         Quick Read
@@ -815,7 +951,7 @@ const BookRecommendation = () => {
 
                       <button
                         onClick={() => navigate(`/read/${book.id}`)}
-                        className="flex-1 bg-green-600 text-white px-3 py-2 rounded hover:bg-green-700 transition-colors duration-300 flex items-center justify-center"
+                        className="flex-1 bg-green-600 text-white px-3 py-2 rounded hover:bg-green-700 transition-colors duration-300 flex items-center justify-center transform hover:scale-105"
                       >
                         <FaExternalLinkAlt className="mr-1" />
                         Full Screen
@@ -825,7 +961,7 @@ const BookRecommendation = () => {
                     <div className="flex gap-2 mt-2">
                       <button
                         onClick={() => openBookReader(book.id)}
-                        className="flex-1 bg-purple-600 text-white px-3 py-2 rounded hover:bg-purple-700 transition-colors duration-300 flex items-center justify-center"
+                        className="flex-1 bg-purple-600 text-white px-3 py-2 rounded hover:bg-purple-700 transition-colors duration-300 flex items-center justify-center transform hover:scale-105"
                       >
                         <FaDownload className="mr-1" />
                         Download
