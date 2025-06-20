@@ -62,6 +62,38 @@ const TrendingBooks = () => {
   const [selectedBookId, setSelectedBookId] = useState(null);
   const [isReaderOpen, setIsReaderOpen] = useState(false);
 
+  // NEW: Read Later state
+  const [readLaterBooks, setReadLaterBooks] = useState([]);
+
+  // NEW: 3-dot menu state
+const [menuOpen, setMenuOpen] = useState({});
+
+const handleMenuToggle = (bookId) => {
+  setMenuOpen((prev) => ({
+    ...prev,
+    [bookId]: !prev[bookId],
+  }));
+};
+
+  useEffect(() => {
+    const savedBooks = localStorage.getItem('readLater');
+    if (savedBooks) {
+      setReadLaterBooks(JSON.parse(savedBooks));
+    }
+  }, []);
+
+  const handleReadLater = (book) => {
+    const alreadySaved = readLaterBooks.some((b) => b.id === book.id);
+    if (alreadySaved) {
+      toast.info('📌 Already saved in Read Later!');
+      return;
+    }
+    const updatedList = [...readLaterBooks, book];
+    setReadLaterBooks(updatedList);
+    localStorage.setItem('readLater', JSON.stringify(updatedList));
+    toast.success('✅ Added to Read Later!');
+  };
+
   // Fetch trending books when component mounts or topic changes
   useEffect(() => {
     const fetchTrendingBooks = async () => {
@@ -264,8 +296,37 @@ const TrendingBooks = () => {
                   </div>
                 </div>
               </div>
-              <h3 className="font-medium text-gray-900 line-clamp-1">{book.title}</h3>
-              <p className="text-sm text-gray-600 line-clamp-1">by {book.author}</p>
+              <div className="flex justify-between items-start">
+  <h3 className="font-medium text-gray-900 line-clamp-1">{book.title}</h3>
+  <button onClick={() => handleMenuToggle(book.id)} className="text-gray-500 hover:text-black px-1">
+    ⋮
+  </button>
+</div>
+<p className="text-sm text-gray-600 line-clamp-1 mb-1">by {book.author}</p>
+
+{/* Dropdown Menu (conditionally shown) */}
+{menuOpen[book.id] && (
+  <div className="bg-white border border-gray-300 rounded shadow p-2 absolute z-10 right-0 mt-1">
+    <button
+      onClick={() => {
+        handleReadLater(book);
+        handleMenuToggle(book.id);
+      }}
+      className="text-sm text-left w-full hover:bg-gray-100 px-2 py-1 block"
+    >
+      📌 Save to Read Later
+    </button>
+    <button
+      onClick={() => {
+        openBookReader(book.id);
+        handleMenuToggle(book.id);
+      }}
+      className="text-sm text-left w-full hover:bg-gray-100 px-2 py-1 block"
+    >
+      📖 Quick Read
+    </button>
+  </div>
+)}
             </motion.div>
           ))}
         </div>
