@@ -12,6 +12,8 @@ import Register from './components/Register';
 import BookRecommendation from './components/BookRecommendation';
 import TrendingBooks from './components/TrendingBooks';
 import FullScreenReader from './components/FullScreenReader';
+import LanguageSwitcher from './components/LanguageSwitcher';
+
 
 // 🔒 Protected Route component
 const ProtectedRoute = ({ children }) => {
@@ -36,20 +38,21 @@ const Dashboard = () => {
           <div className="flex justify-between h-16 items-center">
             <h1 className="text-2xl font-bold text-purple-600">BookHub</h1>
             <div className="flex items-center space-x-4">
-              <button
-                onClick={() => setDarkMode(!darkMode)}
-                className="bg-gray-200 text-sm px-3 py-1 rounded hover:bg-gray-300 transition"
-              >
-                {darkMode ? '🌙 Dark' : '☀️ Light'}
-              </button>
-              <span>{user?.email}</span>
-              <button
-                onClick={logout}
-                className="bg-gradient-to-r from-purple-600 to-blue-500 text-white px-4 py-2 rounded-lg hover:from-purple-700 hover:to-blue-600 transition-all duration-300 shadow-md hover:shadow-lg"
-              >
-                Logout
-              </button>
-            </div>
+  <LanguageSwitcher /> {/* 🌐 Language Dropdown added here */}
+  <button
+    onClick={() => setDarkMode(!darkMode)}
+    className="bg-gray-200 text-sm px-3 py-1 rounded hover:bg-gray-300 transition"
+  >
+    {darkMode ? '🌙 Dark' : '☀️ Light'}
+  </button>
+  <span>{user?.email}</span>
+  <button
+    onClick={logout}
+    className="bg-gradient-to-r from-purple-600 to-blue-500 text-white px-4 py-2 rounded-lg hover:from-purple-700 hover:to-blue-600 transition-all duration-300 shadow-md hover:shadow-lg"
+  >
+    Logout
+  </button>
+</div>
           </div>
         </div>
       </nav>
@@ -112,4 +115,3 @@ function App() {
 }
 
 export default App;
-
