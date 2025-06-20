@@ -296,13 +296,36 @@ const handleMenuToggle = (bookId) => {
                   </div>
                 </div>
               </div>
-              <div className="flex justify-between items-start">
+              {/* Title + 3-dot */}
+<div className="flex justify-between items-start">
   <h3 className="font-medium text-gray-900 line-clamp-1">{book.title}</h3>
   <button onClick={() => handleMenuToggle(book.id)} className="text-gray-500 hover:text-black px-1">
     ⋮
   </button>
 </div>
-<p className="text-sm text-gray-600 line-clamp-1 mb-1">by {book.author}</p>
+
+{/* Author + Progress in one row */}
+<div className="flex justify-between items-center mt-1">
+  <p className="text-sm text-gray-600 line-clamp-1 mr-2 whitespace-nowrap">
+    by {book.author}
+  </p>
+
+  {/* Progress Bar */}
+  <div className="flex items-center gap-1">
+    <div className="w-24 h-2 bg-gray-300 rounded-full overflow-hidden">
+      <div
+        className="h-full bg-green-500 transition-all duration-300"
+        style={{
+          width: `${book.progress || 0}%`,
+          borderRadius: '9999px',
+        }}
+      />
+    </div>
+    <span className="text-xs font-semibold text-gray-700">
+      {book.progress || 0}%
+    </span>
+  </div>
+</div>
 
 {/* Dropdown Menu (conditionally shown) */}
 {menuOpen[book.id] && (
